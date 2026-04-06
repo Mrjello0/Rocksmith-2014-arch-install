@@ -26,13 +26,22 @@ maybe register the wine64 doubt it's needed
       $PROTON/bin/wine winecfg
 
 add wineasio in the librarys I never found it in the list so I type it out manually
+
 <img width="188" height="70" alt="image" src="https://github.com/user-attachments/assets/21902db1-2fe9-4e01-b63e-e36d27726d75" />
 like so next we can download VBASIOTEST and test both 64 and 32
 https://download.vb-audio.com/Download_MT128/VBAsioTest_1013.zip
 select devices and selected WINEASIO
+
 <img width="292" height="84" alt="image" src="https://github.com/user-attachments/assets/80a2e8c4-45fe-4321-bf8f-b3b07f9b59ef" />
 
 both mic passthrough and tone tests should work
 use WINEPREFIX=$STEAMLIBRARY/steamapps/compatdata/221680/pfx LD_PRELOAD=/usr/lib/libjack.so $PROTON/bin/wine ~/Downloads/VBASIOTest32.exe
 may help if no audio is working
 
+setting up wineasio env variables or editing 
+the launch script to include the variables can be nice to make things look nice for qpwgraph 
+variables can be found here https://github.com/wineasio/wineasio
+
+
+guide to make the launch script but for proton 9 the script has bad quotes so it needs to be fixed I'll put my conf files here and launch script
+https://codeberg.org/nizo/linux-rocksmith/src/branch/main/guides/setup/arch-pipewire.md
