@@ -4,10 +4,12 @@ just a reminder to get this working for me not suggesting to others
 
 Don't use cachyos proton as of 1.10 as the application indentifies some libraries as a "debugger"
 
-
+```
 set PROTON "/home/me/.local/share/Steam/steamapps/common/Proton 10.0/files"
+```
+```
 set STEAMLIBRARY "$HOME/.steam/steam/"
-
+```
 download RS_ASIO and build
 https://github.com/mdias/rs_asio/releases
 make the packages or download the prebuilthe t from this repo
