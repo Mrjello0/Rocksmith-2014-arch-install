@@ -1,61 +1,100 @@
 # Rocksmith-2014-arch-install
+
 just a reminder to get this working for me not suggesting to others
 
+Now using **PipeASIO** (not wineasio) + **RS ASIO 0.7.5+** on **Proton Native** (proton-cachyos-native).
+RS ASIO 0.7.5 is the release that fixed the Proton 11 patching issue (issue #629), which was a
+hard requirement for PipeASIO (needs new WoW64, so Proton 11-era; wineasio won't run on it).
 
-Don't use cachyos proton as of 1.10 as the application indentifies some libraries as a "debugger"
+Old "don't use cachyos proton as of 1.10, it detects some libraries as a debugger" warning:
+no longer relevant with Proton Native, works fine.
+
+## Quick install (everything below is automated)
 
 ```
-set PROTON "/home/me/.local/share/Steam/steamapps/common/Proton 10.0/files"
+~/install_rs_asio.sh
 ```
-```
-set STEAMLIBRARY "$HOME/.steam/steam/"
-```
-download RS_ASIO and build
-https://github.com/mdias/rs_asio/releases
-make the packages or download the prebuilthe t from this repo
-copy all os's respectives dll to all the respect os folders regardless of bit
-I belive the 32 bit librarys don't need the 64 like the 64 needs 32 but regardless give it so don't mix .so and .dll tho .dll goes to windows and .so to linux put them in lib wine folder and the proton you'll use 
-next we need to register them
-like so
-```
-WINEPREFIX=$STEAMLIBRARY/steamapps/compatdata/221680/pfx \
-      $PROTON/bin/wine regsvr32 /usr/lib/wine/x86_64-windows/wineasio64.dll
-```
-```
-WINEPREFIX=$STEAMLIBRARY/steamapps/compatdata/221680/pfx \
-      $PROTON/bin/wine regsvr32 /usr/lib/wine/i386-windows/wineasio32.dll
-```
-maybe register the wine64 doubt it's needed
-```
- WINEPREFIX=$STEAMLIBRARY/steamapps/compatdata/221680/pfx \
-      $PROTON/bin/wine winecfg
-```
-add wineasio in the librarys I never found it in the list so I type it out manually
 
-<img width="188" height="70" alt="image" src="https://github.com/user-attachments/assets/21902db1-2fe9-4e01-b63e-e36d27726d75" />
-like so next we can download VBASIOTEST and test both 64 and 32
-https://download.vb-audio.com/Download_MT128/VBAsioTest_1013.zip
-select devices and selected WINEASIO
+That one script:
+- installs PipeASIO into `~/.local/lib/wine` (user-local is REQUIRED for Proton: its container
+  can't see `/usr/lib/wine`, so the AUR package won't work)
+- writes `~/.config/pipeasio/config.ini` with `buffer_size` matching the PipeWire quantum
+- registers PipeASIO in the game prefix
+- downloads latest RS ASIO and copies `avrt.dll`, `RS_ASIO.dll`, `RS_ASIO.ini` into the game folder
+- sets `Driver=PipeASIO` in all `[Asio.*]` sections, strips the CRLF from the released ini
+- backs up old files to `rs_asio_backup_<timestamp>/`
 
-<img width="292" height="84" alt="image" src="https://github.com/user-attachments/assets/80a2e8c4-45fe-4321-bf8f-b3b07f9b59ef" />
+Skip parts with `--no-pipeasio` / `--no-register`, pick another driver with `--driver=NAME`.
 
-both mic passthrough and tone tests should work
-use 
+## Manual steps (what the script does, in case it needs doing by hand)
+
+Game folder: `~/.local/share/Steam/steamapps/common/Rocksmith2014`
+Prefix:       `~/.local/share/Steam/steamapps/compatdata/221680/pfx`
+
+### 1. PipeASIO
+
+Grab the latest `pipeasio-*-archlinux-x86_64.tar.gz` from
+https://github.com/M0n7y5/pipeasio/releases and extract to `$HOME/.local`:
+
 ```
-WINEPREFIX=$STEAMLIBRARY/steamapps/compatdata/221680/pfx LD_PRELOAD=/usr/lib/libjack.so $PROTON/bin/wine ~/Downloads/VBASIOTest32.exe
+tar -xzf pipeasio-*-archlinux-x86_64.tar.gz -C "$HOME/.local"
 ```
-may help if no audio is working
-if you're getting glitching audio in VBAsioTest or rocksmith you need to change pipewires latency either in your pipewire conf and also in the pipewire env variable in the launch script
-and too high of a number will also have glitching audio
+
+Register in the game prefix:
+
 ```
-PIPEWIRE_LATENCY="512/48000" WINEPREFIX=$STEAMLIBRARY/steamapps/compatdata/221680/pfx LD_PRELOAD=/usr/lib/libjack.so $PROTON/bin/wine ~/.local/share/Steam/steamapps/common/Rocksmith2014/Rocksmith2014.exe
+env WINEPREFIX=~/.local/share/Steam/steamapps/compatdata/221680/pfx \
+    ~/.local/bin/pipeasio-register
 ```
-pipewire env vairable can be added for easier live testiing of vbasio or rsmith.exe
 
-setting up wineasio env variables or editing 
-the launch script to include the variables can be nice to make things look nice for qpwgraph 
-variables can be found here https://github.com/wineasio/wineasio
+### 2. RS ASIO
 
+Download the latest release zip (v0.7.5+ — the Proton 11 patch fix) from
+https://github.com/mdias/rs_asio/releases and copy into the game folder:
+`avrt.dll`, `RS_ASIO.dll`, `RS_ASIO.ini`.
 
-guide to make the launch script but for proton 9 the script has bad quotes so it needs to be fixed I'll put my conf files here and launch script
-https://codeberg.org/nizo/linux-rocksmith/src/branch/main/guides/setup/arch-pipewire.md
+### 3. Configs
+
+`~/.config/pipeasio/config.ini` — the important one. PipeASIO IGNORES RS_ASIO's buffer settings;
+its own `buffer_size` defaults to 1024 and with `fixed_buffer_size=1` the host can't change it.
+If that differs from the PipeWire quantum you get stutter. Match them:
+
+```
+[pipeasio]
+buffer_size = 256
+```
+
+`~/.config/pipewire/pipewire.conf.d/99-rocksmith.conf` — forces the graph to 48k / 256:
+
+```
+context.properties = {
+    default.clock.rate = 48000
+    default.clock.allowed-rates = [ 48000 ]
+    default.clock.quantum = 256
+    default.clock.min-quantum = 256
+    default.clock.max-quantum = 256
+}
+```
+
+`RS_ASIO.ini` — `Driver=PipeASIO` in `[Asio.Output]` and all `[Asio.Input.*]`.
+
+`Rocksmith.ini` — `ExclusiveMode=1` and `Win32UltraLowLatencyMode=1`.
+
+### 4. Steam launch options
+
+```
+PROTON_USE_WOW64=1 WINEDLLPATH=$HOME/.local/lib/wine %command%
+```
+
+`PROTON_USE_WOW64=1` is needed because Rocksmith is 32-bit and PipeASIO's 32-bit half requires
+new WoW64. `WINEDLLPATH` tells Proton's wine where to find the driver.
+
+## Debugging
+
+- `grep ASIOBufferSize RS_ASIO-log.txt` after a run. Should show `min: 256 max: 256 preferred: 256`
+  and `actual buffer duration: 5ms (256 frames)`. If it shows 1024, the pipeasio config didn't
+  apply (game must be restarted; the ini is only read at startup).
+- Still stuttery? Drop both the quantum and `buffer_size` to 128 together, keep them equal.
+- VBASIOTest (https://download.vb-audio.com/Download_MT128/VBAsioTest_1013.zip) is still a quick
+  way to sanity-check the ASIO path with PipeASIO selected.
+- Interface must be at 48 kHz.
